@@ -1,21 +1,12 @@
-import importlib
-
-_registry = {}
+global_registry = {}
 
 
 class Registry(object):
+    _registry = global_registry
+
     def __init__(self, global_register: bool = False):
-        self._registry = _registry if global_register else {}
-
-    def auto_register(self, name: str = None):
-        def decorator(cls):
-            _name = name if name else get_class_path(cls)
-            if _name in self._registry:
-                raise ValueError(f"`{_name}` is already registered!")
-            self._registry[_name] = cls
-            return cls
-
-        return decorator
+        if not global_register:
+            self._registry = {}
 
     def register(self, name: str = None):
         def decorator(cls):
@@ -33,6 +24,12 @@ class Registry(object):
             raise ValueError(f"`{_name}` is already registered!")
         self._registry[_name] = cls
         return cls
+
+    def __call__(self, cls, name: str = None, override: bool = True):
+        return self.force_register(cls, name, override)
+
+    def get_registry(self):
+        return self._registry
 
 
 def get_class_path(cls):
