@@ -1,0 +1,117 @@
+import importlib
+from typing import Union, Callable
+from torch.utils.data import Dataset
+from timm.scheduler.scheduler import Scheduler
+from torch.optim.lr_scheduler import LRScheduler
+
+
+def resolve_dict(cfg: dict):
+    assert 'type' in cfg
+    _cfg = cfg.copy()
+    name = _cfg.pop('type')
+    args = _cfg.pop('args') if 'args' in _cfg else ()
+    kwargs = _cfg
+    return name, args, kwargs
+
+
+def build(name: Union[str, Callable], *args, **kwargs):
+    if callable(name):
+        return name(*args, **kwargs)
+    path_and_name = name.rsplit(".", 1)
+    if len(path_and_name) == 1:
+        module_path, class_name = '__main__', name
+    else:
+        module_path, class_name = path_and_name
+    module = importlib.import_module(module_path)
+    return getattr(module, class_name)(*args, **kwargs)
+
+
+def recursive_build(cfg):
+    """
+    # Demo 1: build pytorch model with module name
+    >>> model_cfg = {
+    >>>     'type': 'torch.nn.Sequential',
+    >>>     'args': [
+    >>>         {'type': 'torch.nn.Linear', 'in_features': 16, 'out_features': 32},
+    >>>         {'type': 'torch.nn.Linear', 'in_features': 32, 'out_features': 32},
+    >>>         {'type': 'torch.nn.Linear', 'in_features': 32, 'out_features': 32},
+    >>>         {'type': 'torch.nn.Linear', 'in_features': 32, 'out_features': 16},
+    >>>     ]
+    >>> }
+    >>> model = recursive_build(cfg)
+    >>> print(model)
+    # Demo 2: build pytorch model with module
+    >>> from torch.nn import Linear, Sequential
+    >>> model_cfg = {
+    >>>     'type': Sequential,
+    >>>     'args': [
+    >>>         {'type': Linear, 'in_features': 16, 'out_features': 32},
+    >>>         {
+    >>>             'type': Sequential,
+    >>>             'args': [
+    >>>                 {'type': Linear, 'in_features': 32, 'out_features': 32},
+    >>>                 {'type': Linear, 'in_features': 32, 'out_features': 32},
+    >>>             ]
+    >>>         },
+    >>>         {'type': Linear, 'in_features': 32, 'out_features': 16},
+    >>>     ]
+    >>> }
+    >>> model = recursive_build(cfg)
+    >>> print(model)
+    # Demo 2: build pytorch transforms with module name
+    >>> transform_cfg = {
+    >>>     'type': 'torchvision.transforms.Compose',
+    >>>     'transforms': [
+    >>>         {'type': 'torchvision.transforms.ToTensor'},
+    >>>         {
+    >>>             'type': 'torchvision.transforms.Normalize',
+    >>>             'mean': [0.485, 0.456, 0.406],
+    >>>             'std': [0.229, 0.224, 0.225]
+    >>>         }
+    >>>     ]
+    >>> }
+    >>> transform = recursive_build(transform_cfg)
+    >>> print(transform)
+    """
+    if not isinstance(cfg, (dict, list)):
+        return cfg
+    for k, v in cfg.items():
+        if isinstance(v, dict):
+            if 'type' in v:
+                cfg[k] = recursive_build(v)
+        if isinstance(v, list):
+            if isinstance(v[0], dict) and 'type' in v[0]:
+                cfg[k] = [recursive_build(item) for item in v]
+
+    # print(cfg)
+    name, args, kwargs = resolve_dict(cfg)
+    return build(name, *args, **kwargs)
+
+
+def build_model(cfg: dict):
+    return recursive_build(cfg)
+
+
+def build_optimizer(cfg, params):
+    cfg['params'] = params
+    return recursive_build(cfg)
+
+
+def build_transforms(cfg: dict):
+    return recursive_build(cfg)
+
+
+def build_dataset(cfg: dict):
+    return recursive_build(cfg)
+
+
+def build_dataloader(cfg: dict, dataset: Dataset):
+    cfg['dataset'] = dataset
+    return recursive_build(cfg)
+
+
+def build_scheduler(cfg: dict, optimizer: Union[
+    LRScheduler, Scheduler
+]):
+    cfg['optimizer'] = optimizer
+    return recursive_build(cfg)

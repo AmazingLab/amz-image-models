@@ -17,7 +17,7 @@ def build_from_register(name: str, registry: dict, *args, restrict: bool = True,
         if restrict:
             raise ValueError(f"Class `{name}` not found in registry!")
         else:
-            warnings.warn(f"Warning: `{name}` is not registered; building from installed modules.")
+            warnings.warn(f"`{name}` is not registered; building from installed modules.")
             return build(name, *args, **kwargs)
 
     _class = registry[name]
