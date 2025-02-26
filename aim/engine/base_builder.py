@@ -1,8 +1,5 @@
 import importlib
 from typing import Union, Callable
-from torch.utils.data import Dataset
-from timm.scheduler.scheduler import Scheduler
-from torch.optim.lr_scheduler import LRScheduler
 
 
 def resolve_dict(cfg: dict):
@@ -86,32 +83,3 @@ def recursive_build(cfg):
     # print(cfg)
     name, args, kwargs = resolve_dict(cfg)
     return build(name, *args, **kwargs)
-
-
-def build_model(cfg: dict):
-    return recursive_build(cfg)
-
-
-def build_optimizer(cfg, params):
-    cfg['params'] = params
-    return recursive_build(cfg)
-
-
-def build_transforms(cfg: dict):
-    return recursive_build(cfg)
-
-
-def build_dataset(cfg: dict):
-    return recursive_build(cfg)
-
-
-def build_dataloader(cfg: dict, dataset: Dataset):
-    cfg['dataset'] = dataset
-    return recursive_build(cfg)
-
-
-def build_scheduler(cfg: dict, optimizer: Union[
-    LRScheduler, Scheduler
-]):
-    cfg['optimizer'] = optimizer
-    return recursive_build(cfg)
