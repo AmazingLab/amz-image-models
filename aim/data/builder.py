@@ -48,9 +48,9 @@ def build_dataset(cfg: dict) -> Dataset:
     return recursive_build(cfg)
 
 
-def build_sampler(cfg: dict, dataset: Union[Dataset, dict]) -> Sampler:
+def build_sampler(cfg: dict) -> Sampler:
     """
-    >>> # Example 1: Build distributed sampler (using dataset config)
+    >>> # Example 1: Build random sampler (using dataset config)
     >>> dataset_cfg = {
     >>>     'type': 'torchvision.datasets.MNIST',
     >>>     'root': '~/Downloads/',
@@ -59,32 +59,29 @@ def build_sampler(cfg: dict, dataset: Union[Dataset, dict]) -> Sampler:
     >>>     'transform': {'type': 'torchvision.transforms.ToTensor'}
     >>> }
     >>> sampler_cfg = {
-    >>>     'type': 'torch.utils.data.distributed.DistributedSampler',
-    >>>     'shuffle': True  # Controls whether to shuffle the data
+    >>>     'type': 'torch.utils.data.RandomSampler',
+    >>>     'replacement': True,
+    >>>     'num_samples': 1000
+    >>>     'dataset': dataset_cfg,
     >>> }
-    >>> sampler = build_sampler(sampler_cfg, dataset_cfg)
+    >>> sampler = build_sampler(sampler_cfg)
     >>> print(sampler)
     >>>
-    >>> # Example 2: Build random sampler (using pre-built dataset instance)
-    >>> from torch.utils.data import RandomSampler
+    >>> # Example 2: Build distributed sampler (using pre-built dataset instance)
+    >>> from torch.utils.data.distributed import DistributedSampler
     >>> dataset = build_dataset(dataset_cfg)  # Assuming dataset is built via build_dataset
     >>> sampler_cfg = {
-    >>>     'type': RandomSampler,
-    >>>     'replacement': True,    # Allows sampling with replacement
-    >>>     'num_samples': 1000     # Specifies number of samples to draw
+    >>>     'type': DistributedSampler,
+    >>>     'shuffle': True
+    >>>     'dataset': dataset,
     >>> }
-    >>> sampler = build_sampler(sampler_cfg, dataset)
+    >>> sampler = build_sampler(sampler_cfg)
     >>> print(sampler)
     """
-    dataset = recursive_build(dataset)
-    type_name, args, kwargs = resolve_dict(cfg)
-    # Torch RandomSampler(data_source, ...)
-    # Torch DistributedSampler(dataset, ...)
-    # TIMM OrderedDistributedSampler(dataset, ...)
-    return build(type_name, dataset, *args, **kwargs)
+    return recursive_build(cfg)
 
 
-def build_dataloader(dataset: Dataset, cfg: dict) -> Union[DataLoader, PrefetchLoader]:
+def build_dataloader(cfg: dict) -> Union[DataLoader, PrefetchLoader]:
     """
     Builds a DataLoader with flexible configuration support, including timm prefetcher.
     >>> # Example 1: Standard PyTorch DataLoader
@@ -132,9 +129,17 @@ def build_dataloader(dataset: Dataset, cfg: dict) -> Union[DataLoader, PrefetchL
     3. Configuration inheritance: Original DataLoader params (batch_size, num_workers, etc.)
        are preserved when using prefetcher
     """
-    cfg['dataset'] = dataset
+    cfg['dataset'] = build_dataset(cfg['dataset'])
     if 'sampler' in cfg:
-        cfg['sampler'] = build_sampler(cfg['sampler'], dataset)
+        # 创建sampler时引用dataset对象，不需要重新build
+        if 'dataset' in cfg['sampler']:
+            # support `DistributedSampler`,
+            cfg['sampler']['dataset'] = cfg['dataset']
+        if 'data_source' in cfg['sampler']:
+            # support `SequentialSampler` `RandomSampler`
+            cfg['sampler']['data_source'] = cfg['dataset']
+
+        cfg['sampler'] = build_sampler(cfg['sampler'])
     timm_prefetcher = cfg.pop('timm_prefetcher')
     if timm_prefetcher is not None:
         cfg['collate_fn'] = fast_collate
@@ -142,3 +147,6 @@ def build_dataloader(dataset: Dataset, cfg: dict) -> Union[DataLoader, PrefetchL
         return PrefetchLoader(loader=dataloader, **timm_prefetcher)
 
     return recursive_build(cfg)
+
+import torch
+torch.utils.data.RandomSampler
