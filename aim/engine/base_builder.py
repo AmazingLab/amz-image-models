@@ -5,22 +5,26 @@ from typing import Union, Callable
 def resolve_dict(cfg: dict):
     assert 'type' in cfg
     _cfg = cfg.copy()
-    name = _cfg.pop('type')
+    type_name = _cfg.pop('type')
     args = _cfg.pop('args') if 'args' in _cfg else ()
     kwargs = _cfg
-    return name, args, kwargs
+    return type_name, args, kwargs
 
 
-def build(name: Union[str, Callable], *args, **kwargs):
-    if callable(name):
-        return name(*args, **kwargs)
-    path_and_name = name.rsplit(".", 1)
+def build(type_name: Union[str, Callable], *args, **kwargs):
+    if callable(type_name):
+        return type_name(*args, **kwargs)
+    path_and_name = type_name.rsplit(".", 1)
     if len(path_and_name) == 1:
-        module_path, class_name = '__main__', name
+        module_path, class_name = '__main__', type_name
     else:
         module_path, class_name = path_and_name
     module = importlib.import_module(module_path)
-    return getattr(module, class_name)(*args, **kwargs)
+    try:
+        obj = getattr(module, class_name)(*args, **kwargs)
+    except Exception as e:
+        raise e
+    return obj
 
 
 def recursive_build(cfg):
@@ -81,5 +85,5 @@ def recursive_build(cfg):
                 cfg[k] = [recursive_build(item) for item in v]
 
     # print(cfg)
-    name, args, kwargs = resolve_dict(cfg)
-    return build(name, *args, **kwargs)
+    type_name, args, kwargs = resolve_dict(cfg)
+    return build(type_name, *args, **kwargs)

@@ -77,19 +77,27 @@ def build_sampler(cfg: dict, dataset: Union[Dataset, dict]) -> Sampler:
     >>> print(sampler)
     """
     dataset = recursive_build(dataset)
-    name, args, kwargs = resolve_dict(cfg)
+    type_name, args, kwargs = resolve_dict(cfg)
     # Torch RandomSampler(data_source, ...)
     # Torch DistributedSampler(dataset, ...)
     # TIMM OrderedDistributedSampler(dataset, ...)
-    return build(name, dataset, *args, **kwargs)
+    return build(type_name, dataset, *args, **kwargs)
 
 
-def build_dataloader(cfg: dict, dataset: Dataset) -> Union[DataLoader, PrefetchLoader]:
+def build_dataloader(dataset: Dataset, cfg: dict) -> Union[DataLoader, PrefetchLoader]:
     """
     Builds a DataLoader with flexible configuration support, including timm prefetcher.
-
     >>> # Example 1: Standard PyTorch DataLoader
-    >>> dataset = build_dataset(dataset_cfg)  # Assume dataset is pre-built
+    >>> dataset_cfg = {
+    >>>     'type': 'torchvision.datasets.MNIST',
+    >>>     'root': '~/Downloads/',
+    >>>     'train': True,
+    >>>     'download': True,
+    >>>     'transform': {
+    >>>         'type': 'torchvision.transforms.ToTensor'
+    >>>     }
+    >>> }
+    >>> dataset = build_dataset(dataset_cfg)
     >>> loader_cfg = {
     >>>     'type': 'torch.utils.data.DataLoader',
     >>>     'batch_size': 32,
@@ -100,10 +108,10 @@ def build_dataloader(cfg: dict, dataset: Dataset) -> Union[DataLoader, PrefetchL
     >>>     'num_workers': 4,
     >>>     'timm_prefetcher': None  # Disable prefetcher
     >>> }
-    >>> dataloader = build_dataloader(loader_cfg, dataset)
+    >>> dataloader = build_dataloader(dataset, loader_cfg)
     >>>
     >>> # Example 2: Using timm PrefetchLoader with fast collate
-    >>> prefetch_cfg = {
+    >>> loader_with_prefetch_cfg = {
     >>>     'type': 'torch.utils.data.DataLoader',
     >>>     'batch_size': 128,
     >>>     'sampler': {
@@ -114,7 +122,7 @@ def build_dataloader(cfg: dict, dataset: Dataset) -> Union[DataLoader, PrefetchL
     >>>         'pin_memory': True
     >>>     }
     >>> }
-    >>> prefetch_loader = build_dataloader(prefetch_cfg, dataset)
+    >>> prefetch_loader = build_dataloader(dataset, loader_with_prefetch_cfg)
 
     Key Features:
     1. Automatic sampler building: The 'sampler' config will be resolved using build_sampler
@@ -125,7 +133,8 @@ def build_dataloader(cfg: dict, dataset: Dataset) -> Union[DataLoader, PrefetchL
        are preserved when using prefetcher
     """
     cfg['dataset'] = dataset
-    cfg['sampler'] = build_sampler(cfg['sampler'], dataset)
+    if 'sampler' in cfg:
+        cfg['sampler'] = build_sampler(cfg['sampler'], dataset)
     timm_prefetcher = cfg.pop('timm_prefetcher')
     if timm_prefetcher is not None:
         cfg['collate_fn'] = fast_collate
