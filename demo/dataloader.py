@@ -19,7 +19,7 @@ imagenet_dataset_train = {
     'register': 'dataset',
     'root': '/home/stephen/Downloads/imagenet',
     'split': 'train',
-    'transform': {'load': 'transform'}
+    'transform': dict(load='transform')
 }
 
 loader_cfg = {

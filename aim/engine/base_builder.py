@@ -28,6 +28,7 @@ def build(type_name: Union[str, Callable], *args, **kwargs):
     try:
         obj = module(*args, **kwargs)
     except Exception as e:
+        print(f'Failed to build {type_name}: {e}')
         raise e
     return obj
 
@@ -103,7 +104,6 @@ def recursive_build(cfg, registry: dict = None):
             build_module = registry[load_name]
         else:
             build_module = load_module(load_name)
-
 
     else:
         build_module = cfg
