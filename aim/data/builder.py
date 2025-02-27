@@ -9,7 +9,7 @@ from torch.utils.data import Dataset, Sampler, DataLoader
 from aim.engine import recursive_build, build, resolve_dict
 
 
-def build_transforms(cfg: dict):
+def build_transforms(cfg: dict, registry: dict = None):
     """
     >>> transform_cfg = {
     >>>     'type': 'torchvision.transforms.Compose',
@@ -25,10 +25,10 @@ def build_transforms(cfg: dict):
     >>> transform = build_transforms(transform_cfg)
     >>> print(transform)
     """
-    return recursive_build(cfg)
+    return recursive_build(cfg, registry)
 
 
-def build_dataset(cfg: dict) -> Dataset:
+def build_dataset(cfg: dict, registry: dict = None) -> Dataset:
     """
     >>> from torchvision.datasets import MNIST
     >>> dataset_cfg = {
@@ -45,10 +45,10 @@ def build_dataset(cfg: dict) -> Dataset:
     :param cfg:
     :return:
     """
-    return recursive_build(cfg)
+    return recursive_build(cfg, registry)
 
 
-def build_sampler(cfg: dict) -> Sampler:
+def build_sampler(cfg: dict, registry: dict = None) -> Sampler:
     """
     >>> # Example 1: Build random sampler (using dataset config)
     >>> dataset_cfg = {
@@ -78,10 +78,10 @@ def build_sampler(cfg: dict) -> Sampler:
     >>> sampler = build_sampler(sampler_cfg)
     >>> print(sampler)
     """
-    return recursive_build(cfg)
+    return recursive_build(cfg, registry)
 
 
-def build_dataloader(cfg: dict) -> Union[DataLoader, PrefetchLoader]:
+def build_dataloader(cfg: dict, registry: dict = None) -> Union[DataLoader, PrefetchLoader]:
     """
     Builds a DataLoader with flexible configuration support, including timm prefetcher.
     >>> # Example 1: Standard PyTorch DataLoader
@@ -129,7 +129,7 @@ def build_dataloader(cfg: dict) -> Union[DataLoader, PrefetchLoader]:
     3. Configuration inheritance: Original DataLoader params (batch_size, num_workers, etc.)
        are preserved when using prefetcher
     """
-    cfg['dataset'] = build_dataset(cfg['dataset'])
+    cfg['dataset'] = build_dataset(cfg['dataset'], registry)
     if 'sampler' in cfg:
         # 创建sampler时引用dataset对象，不需要重新build
         if 'dataset' in cfg['sampler']:
@@ -139,14 +139,11 @@ def build_dataloader(cfg: dict) -> Union[DataLoader, PrefetchLoader]:
             # support `SequentialSampler` `RandomSampler`
             cfg['sampler']['data_source'] = cfg['dataset']
 
-        cfg['sampler'] = build_sampler(cfg['sampler'])
+        cfg['sampler'] = build_sampler(cfg['sampler'], registry)
     timm_prefetcher = cfg.pop('timm_prefetcher')
     if timm_prefetcher is not None:
         cfg['collate_fn'] = fast_collate
-        dataloader = recursive_build(cfg)
+        dataloader = recursive_build(cfg, registry)
         return PrefetchLoader(loader=dataloader, **timm_prefetcher)
 
-    return recursive_build(cfg)
-
-import torch
-torch.utils.data.RandomSampler
+    return recursive_build(cfg, registry)

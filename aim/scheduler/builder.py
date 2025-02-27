@@ -7,6 +7,6 @@ from torch.optim.lr_scheduler import LRScheduler
 from aim.engine import recursive_build
 
 
-def build_scheduler(cfg: dict, optimizer: Optimizer) -> Union[LRScheduler, Scheduler]:
+def build_scheduler(optimizer: Optimizer, cfg: dict, registry: dict = None) -> Union[LRScheduler, Scheduler]:
     cfg['optimizer'] = optimizer
-    return recursive_build(cfg)
+    return recursive_build(cfg, registry)

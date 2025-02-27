@@ -27,7 +27,7 @@ def build(type_name: Union[str, Callable], *args, **kwargs):
     return obj
 
 
-def recursive_build(cfg):
+def recursive_build(cfg, registry: dict = None):
     """
     # Demo 1: build pytorch model with module name
     >>> model_cfg = {
@@ -78,12 +78,30 @@ def recursive_build(cfg):
         return cfg
     for k, v in cfg.items():
         if isinstance(v, dict):
-            if 'type' in v:
-                cfg[k] = recursive_build(v)
+            cfg[k] = recursive_build(v, registry)
+            # if 'type' in v:
+            #     cfg[k] = recursive_build(v, registry)
         if isinstance(v, list):
             if isinstance(v[0], dict) and 'type' in v[0]:
-                cfg[k] = [recursive_build(item) for item in v]
+                cfg[k] = [recursive_build(item, registry) for item in v]
 
-    # print(cfg)
-    type_name, args, kwargs = resolve_dict(cfg)
-    return build(type_name, *args, **kwargs)
+    # pop register in cfg
+    register = cfg.pop('register', None)
+
+    # build/load/do nothing
+    if 'type' in cfg:
+        type_name, args, kwargs = resolve_dict(cfg)
+        build_module = build(type_name, *args, **kwargs)
+    elif 'load' in cfg:
+        load_name = cfg['load']
+        assert registry is not None, f'`registry` should not be None'
+        assert cfg['load'] in registry, f'`{load_name}` not found in {registry}'
+        build_module = registry[load_name]
+    else:
+        build_module = cfg
+
+    # register module in registry
+    if register is not None:
+        registry[register] = build_module
+
+    return build_module

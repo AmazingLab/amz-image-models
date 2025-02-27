@@ -1,8 +1,9 @@
 import torch
-from aim.data.builder import build_dataloader, build_dataset
+from aim.data.builder import build_dataloader, build_dataset, build_transforms
 
-imagenet_train_cfg = {
+imagenet_transform_cfg = {
     'type': 'torchvision.transforms.Compose',
+    'register': 'transform',
     'transforms': [
         {'type': 'timm.data.RandomResizedCropAndInterpolation',
          'size': 224, 'scale': (0.08, 1.0), 'ratio': (3. / 4., 4. / 3.), 'interpolation': 'random'},
@@ -15,14 +16,15 @@ imagenet_train_cfg = {
 
 imagenet_dataset_train = {
     'type': 'timm.data.ImageDataset',
+    'register': 'dataset',
     'root': '/home/stephen/Downloads/imagenet',
     'split': 'train',
-    'transform': imagenet_train_cfg
+    'transform': {'load': 'transform'}
 }
 
 loader_cfg = {
     'type': torch.utils.data.DataLoader,
-    'dataset': imagenet_dataset_train,
+    'dataset': {'load': 'dataset'},
     'batch_size': 32,
     'num_workers': 1,
     'pin_memory': False,
@@ -31,7 +33,7 @@ loader_cfg = {
     # Enable `RandomSampler`, the same as set shuffle=True
     'sampler': {
         'type': 'torch.utils.data.RandomSampler',
-        'data_source': imagenet_dataset_train,
+        'data_source': {'load': 'dataset'},
     },
     'collate_fn': None,
     'timm_prefetcher': {
@@ -48,7 +50,10 @@ loader_cfg = {
 }
 
 if __name__ == "__main__":
-    loader = build_dataloader(loader_cfg)
+    registry = dict()
+    transmorm = build_transforms(imagenet_transform_cfg, registry)
+    dataset = build_dataset(imagenet_dataset_train, registry)
+    loader = build_dataloader(loader_cfg, registry)
     print(loader)
     for img, label in loader:
         print(img.shape)
