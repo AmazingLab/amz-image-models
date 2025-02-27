@@ -11,17 +11,22 @@ def resolve_dict(cfg: dict):
     return type_name, args, kwargs
 
 
-def build(type_name: Union[str, Callable], *args, **kwargs):
-    if callable(type_name):
-        return type_name(*args, **kwargs)
+def load_module(type_name: str):
     path_and_name = type_name.rsplit(".", 1)
     if len(path_and_name) == 1:
         module_path, class_name = '__main__', type_name
     else:
         module_path, class_name = path_and_name
     module = importlib.import_module(module_path)
+    return getattr(module, class_name)
+
+
+def build(type_name: Union[str, Callable], *args, **kwargs):
+    if callable(type_name):
+        return type_name(*args, **kwargs)
+    module = load_module(type_name)
     try:
-        obj = getattr(module, class_name)(*args, **kwargs)
+        obj = module(*args, **kwargs)
     except Exception as e:
         raise e
     return obj
@@ -94,9 +99,12 @@ def recursive_build(cfg, registry: dict = None):
         build_module = build(type_name, *args, **kwargs)
     elif 'load' in cfg:
         load_name = cfg['load']
-        assert registry is not None, f'`registry` should not be None'
-        assert cfg['load'] in registry, f'`{load_name}` not found in {registry}'
-        build_module = registry[load_name]
+        if registry is not None and load_name in registry:
+            build_module = registry[load_name]
+        else:
+            build_module = load_module(load_name)
+
+
     else:
         build_module = cfg
 
