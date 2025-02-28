@@ -8,6 +8,5 @@ from aim.engine import recursive_build
 ParamsT: TypeAlias = Union[Iterable[torch.Tensor], Iterable[Dict[str, Any]]]
 
 
-def build_optimizer(params: ParamsT, cfg, registry: dict = None) -> optim.Optimizer:
-    cfg['params'] = params
+def build_optimizer(cfg, registry: dict = None) -> optim.Optimizer:
     return recursive_build(cfg, registry)
