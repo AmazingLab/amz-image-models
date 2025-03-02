@@ -100,26 +100,29 @@ def build_dataloader(cfg: dict, registry: dict = None) -> Union[DataLoader, Pref
     >>>     'batch_size': 32,
     >>>     'sampler': {
     >>>         'type': 'torch.utils.data.RandomSampler',
+    >>>         'data_source': {'load': 'dataset'}
     >>>         'replacement': False
     >>>     },
     >>>     'num_workers': 4,
     >>>     'timm_prefetcher': None  # Disable prefetcher
     >>> }
-    >>> dataloader = build_dataloader(dataset, loader_cfg)
+    >>> # Use the built dataset
+    >>> dataloader = build_dataloader(loader_cfg, {'dataset': dataset})
     >>>
     >>> # Example 2: Using timm PrefetchLoader with fast collate
     >>> loader_with_prefetch_cfg = {
     >>>     'type': 'torch.utils.data.DataLoader',
     >>>     'batch_size': 128,
     >>>     'sampler': {
-    >>>         'type': 'torch.utils.data.SequentialSampler'
+    >>>         'type': 'torch.utils.data.SequentialSampler',
+    >>>         'data_source': {'load': 'dataset'}
     >>>     },
     >>>     'timm_prefetcher': {
     >>>         'num_workers': 4,
     >>>         'pin_memory': True
     >>>     }
     >>> }
-    >>> prefetch_loader = build_dataloader(dataset, loader_with_prefetch_cfg)
+    >>> prefetch_loader = build_dataloader(loader_with_prefetch_cfg)
 
     Key Features:
     1. Automatic sampler building: The 'sampler' config will be resolved using build_sampler
@@ -131,14 +134,6 @@ def build_dataloader(cfg: dict, registry: dict = None) -> Union[DataLoader, Pref
     """
     cfg['dataset'] = build_dataset(cfg['dataset'], registry)
     if 'sampler' in cfg:
-        # 创建sampler时引用dataset对象，不需要重新build
-        if 'dataset' in cfg['sampler']:
-            # support `DistributedSampler`,
-            cfg['sampler']['dataset'] = cfg['dataset']
-        if 'data_source' in cfg['sampler']:
-            # support `SequentialSampler` `RandomSampler`
-            cfg['sampler']['data_source'] = cfg['dataset']
-
         cfg['sampler'] = build_sampler(cfg['sampler'], registry)
     timm_prefetcher = cfg.pop('timm_prefetcher')
     if timm_prefetcher is not None:
