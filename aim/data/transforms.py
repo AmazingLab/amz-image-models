@@ -19,7 +19,7 @@ from torchvision.transforms import functional as F
 
 __all__ = [
     "ToFloatTensor", "RandomHorizontalFlipDVS", "ResizeDVS", "RandomCropDVS", "NeuromorphicDataAugmentation",
-    "TimeSample", "RandomTimeShuffle", "RandomTimeShuffleLegacy", "RandomSliding", "RandomCircularSliding"
+    "TimeSample", "RandomTimeShuffle", "RandomSliding", "RandomCircularSliding"
 ]
 
 
@@ -171,22 +171,6 @@ class TimeSample(object):
             zero = np.zeros((self.time_step - sample_step, *data.shape[1:]), dtype=data.dtype)
             data = np.concatenate((data, zero), axis=0)
 
-        return data
-
-
-class RandomTimeShuffleLegacy(object):
-    # TODO: will be deprecated.
-    def __init__(self, time_step: int, p=0.5):
-        self.time_step = time_step
-        self.p = p
-
-    def __call__(self, data):
-        if np.random.rand(1) > self.p:
-            return data
-
-        indices = np.arange(self.time_step)
-        np.random.shuffle(indices)
-        data = data[indices]
         return data
 
 

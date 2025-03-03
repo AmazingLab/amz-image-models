@@ -465,9 +465,7 @@ def main():
             num_classes=-1,  # force head adaptation
         )
 
-    model = build_model(dict(
-        type='timm.models.resnet.resnet18'
-    ))
+    model = build_model(args.model)
 
     if args.head_init_scale is not None:
         with torch.no_grad():
@@ -863,7 +861,8 @@ def main():
                 dataset_train.set_epoch(epoch)
             elif args.distributed and hasattr(loader_train.sampler, 'set_epoch'):
                 loader_train.sampler.set_epoch(epoch)
-
+            if utils.is_primary(args):
+                print(time.strftime("[INFO] %Y-%m-%d %H:%M:%S", time.localtime()))
             train_metrics = train_one_epoch(
                 epoch,
                 model,

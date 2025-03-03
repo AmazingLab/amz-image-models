@@ -15,7 +15,7 @@ dataset = dict(
 )
 model = dict(
     model=dict(
-        type='timm.models.resnet.resnet18'
+        type='timm.models.resnet.resnet50'
     ),
     pretrained=False,
     pretrained_path=None,
